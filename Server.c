@@ -130,10 +130,10 @@ void* handle_client(void* args){
   assert(send(c->client_socket, buffer, BUF, 0) > 0);
   assert((fd = open(c->file_name, O_RDONLY)) != 1);
   
-  while((sent_bytes = sendfile(c->client_socket, fd, &offset, BUF)) > 0 &&
+  while((sent_bytes = sendfile(c->client_socket, fd, &offset,
+			       (bytes_remaining - BUF < 0) ? bytes_remaining: BUF)) > 0 &&
 	(bytes_remaining > 0)){
     bytes_remaining -= sent_bytes;
-    
     fprintf(stdout, "[+] %lf%c: ", 100.0 * (1 - (double)bytes_remaining/bytes_to_send), '%');
     fprintf(stdout, "Sent %d bytes to client %d\n", sent_bytes, c->client_number);
   }

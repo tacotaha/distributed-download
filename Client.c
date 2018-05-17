@@ -58,8 +58,8 @@ int main(int argc, char* argv[]){
 
   while((bytes_rcvd = recv(client_socket, buffer, BUF, 0)) > 0 &&
 	bytes_remaining > 0){
-    fwrite(buffer, sizeof(char), bytes_rcvd,fp);
     bytes_remaining -= bytes_rcvd;
+    fwrite(buffer, sizeof(char), bytes_remaining < 0 ? abs(bytes_remaining) : bytes_rcvd, fp);
     fprintf(stdout, "[+] %lf%c: ", 100.0 * (1 - (double)bytes_remaining/bytes_to_receive), '%');
     fprintf(stdout, "Received %lu bytes from server\n", bytes_to_receive - bytes_remaining);
   }
