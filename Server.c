@@ -21,16 +21,17 @@ typedef struct client{
 void* handle_client(void*);
 
 int main(int argc, char* argv[]){
-  int server_socket, client_socket, client_count = 0, port = PORT;
-  int num_clients = -99999;
+  int server_socket = 0, client_socket = 0, client_tracker, client_count = 0,
+    port = PORT, tracker_port = port+1, tracker_socket = 0;;
+  int num_clients = -99999, clients[MAX_CLIENTS], trackers[MAX_CLIENTS];
   size_t num_bytes, bytes_left, bytes_per_partition;
-  struct sockaddr_in server;
+  struct sockaddr_in server, addr, tracker;
   struct stat st;
-  char *ip = IP, *file_name = NULL;
+  char *ip = IP, *file_name, gather[BUF*2], buffer[32], ip_addrs[MAX_CLIENTS][INET_ADDRSTRLEN];
   pthread_t tids[MAX_CLIENTS];
   socklen_t sckln = sizeof(struct sockaddr_in);
-  
-  for(int i = 1; i < argc; i += 2){
+
+  for(int i = 1; i < argc; i += 2)
     if(!strcmp(argv[i],"-i") && argc >= i + 1)
       ip = argv[i + 1];
     else if(!strcmp(argv[i],"-p") && argc >= i + 1)
@@ -44,23 +45,24 @@ int main(int argc, char* argv[]){
       printf("Default: ip = 127.0.0.0.1, port = 4444\n");
       exit(0);
     }
-  }
 
-  if(file_name == NULL || access(file_name, F_OK) == -1){
-    fprintf(stderr, "Please provide a valid file path!\n");
-    exit(-1);
-  }else if(num_clients <= 0 || num_clients > MAX_CLIENTS){
+  if(num_clients <= 0 || num_clients > MAX_CLIENTS){
     fprintf(stderr, "num_clients must be greater than 0 but smaller than %d!\n", MAX_CLIENTS);
     exit(-1);
   }
   
-  memset(&server_socket,0x0,sizeof(server_socket));
-
   server_socket = create_socket();
+  tracker_socket = create_socket();
+  
   server = create_socket_address(port, ip);
+  tracker = create_socket_address(tracker_port, ip);
+  
   bind_connection(server_socket,(struct sockaddr*)&server);
+  bind_connection(tracker_socket, (struct sockaddr*)&tracker);
+  
   listen_for_connection(server_socket, MAX_CLIENTS);
-
+  listen_for_connection(tracker_socket, MAX_CLIENTS);
+  
   assert(stat(file_name, &st) != -1);
   
   num_bytes = bytes_left = st.st_size;
@@ -68,8 +70,9 @@ int main(int argc, char* argv[]){
   
   /* Accept connections from k clients */
   while((client_count < num_clients) &&
-	(client_socket = accept(server_socket,(struct sockaddr *)&server,&sckln))){
-
+	(client_socket = accept(server_socket, (struct sockaddr *)&server, &sckln)) &&
+	(client_tracker = accept(tracker_socket, (struct sockaddr*)&tracker, &sckln))){
+    
     Client c;
     c.client_socket = client_socket;
     c.start_pos = num_bytes - bytes_left;
@@ -77,17 +80,41 @@ int main(int argc, char* argv[]){
     c.file_name = file_name;
     c.client_number = client_count;
     bytes_left -= bytes_per_partition;
+
+    clients[client_count] = client_socket;
+    trackers[client_count] = client_tracker;
+    
+    getpeername(client_socket, (struct sockaddr*)&addr, &sckln);
+    printf("[+] Client %d connected from %s\n", client_count, inet_ntoa(addr.sin_addr));
+    strcpy(ip_addrs[client_count], inet_ntoa(addr.sin_addr));
+
+    getpeername(tracker_socket, (struct sockaddr*)&addr, &sckln);
+    printf("[+] Tracker %d connected from %s\n", client_count, inet_ntoa(addr.sin_addr));
+    assert(strcmp(ip_addrs[client_count], inet_ntoa(addr.sin_addr)) == 0);
     
     assert(pthread_create(tids + client_count, NULL, handle_client, &c) == 0);
-    printf("[+] Client %d connected! \n", client_count++);
+    ++client_count;
   }
-  
-  
+
   for(int i = 0; i < num_clients; ++i)
     pthread_join(tids[i], NULL);
-  
-  fprintf(stdout, "[-] Transfer complete. Closing Server Socket.\n");
+
+  for(int i = 0; i < num_clients; ++i){
+    memset(gather, 0, sizeof(gather));
+    memset(buffer, 0, sizeof(buffer));
+    for(int j = 0; j < num_clients; ++j){
+      if(i == j) continue;
+      sprintf(buffer, "%d:%s,", j, ip_addrs[j]);
+      strcat(gather, buffer);
+    }
+    send(trackers[i], gather, sizeof(gather), 0);
+    close(clients[i]);
+    close(trackers[i]);
+  }
+
+  printf("[+] Transfer complete. Closing Sockets.\n");
   close(server_socket);
+  close(tracker_socket);
   return 0;
 }
 
@@ -103,9 +130,10 @@ void* handle_client(void* args){
   assert(send(c->client_socket, buffer, BUF, 0) > 0);
   assert((fd = open(c->file_name, O_RDONLY)) != 1);
   
-  while((bytes_remaining > 0) &&
-	(sent_bytes = sendfile(c->client_socket, fd, &offset, BUF)) > 0){
+  while((sent_bytes = sendfile(c->client_socket, fd, &offset, BUF)) > 0 &&
+	(bytes_remaining > 0)){
     bytes_remaining -= sent_bytes;
+    
     fprintf(stdout, "[+] %lf%c: ", 100.0 * (1 - (double)bytes_remaining/bytes_to_send), '%');
     fprintf(stdout, "Sent %d bytes to client %d\n", sent_bytes, c->client_number);
   }

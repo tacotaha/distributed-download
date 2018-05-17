@@ -8,10 +8,11 @@
 
 int main(int argc, char* argv[]){
   
-  int client_socket, port = PORT, client_number, bytes_remaining, bytes_rcvd;
+  int client_socket, tracker_socket,  port = PORT,
+    tracker_port = port + 1, client_number, bytes_remaining, bytes_rcvd;
   size_t bytes_to_receive;
-  struct sockaddr_in server_addr;
-  char buffer[BUF], *ip = IP, *ptr;
+  struct sockaddr_in server_addr, tracker_addr;
+  char buffer[BUF], peers[BUF*2], *ip = IP, *ptr;
   FILE *fp;
   
   for(int i = 1; i < argc; i += 2)
@@ -25,12 +26,16 @@ int main(int argc, char* argv[]){
       exit(0);
     }
   
-  memset(&client_socket,0,sizeof(client_socket));
   client_socket = create_socket();
   server_addr = create_socket_address(port, ip);
   connect_to_server(client_socket,(struct sockaddr*)&server_addr);
-  assert(recv(client_socket, buffer, BUF, 0) >= 0);
 
+  tracker_socket = create_socket();
+  tracker_addr = create_socket_address(tracker_port, ip);
+  connect_to_server(tracker_socket,(struct sockaddr*)&tracker_addr);
+
+  assert(recv(client_socket, buffer, BUF, 0) > 0);
+  
   ptr = strtok(buffer, "#");
   ptr = strtok(NULL,  "#");
   ptr = strtok(ptr, ".");
@@ -50,15 +55,22 @@ int main(int argc, char* argv[]){
   sprintf(buffer, "%d", client_number);
   
   assert((fp = fopen(buffer, "w")) != NULL);
-  
-  while(bytes_remaining > 0 && (bytes_rcvd = recv(client_socket, buffer, BUF, 0)) > 0){
+
+  while((bytes_rcvd = recv(client_socket, buffer, BUF, 0)) > 0 &&
+	bytes_remaining > 0){
     fwrite(buffer, sizeof(char), bytes_rcvd,fp);
     bytes_remaining -= bytes_rcvd;
     fprintf(stdout, "[+] %lf%c: ", 100.0 * (1 - (double)bytes_remaining/bytes_to_receive), '%');
     fprintf(stdout, "Received %lu bytes from server\n", bytes_to_receive - bytes_remaining);
   }
+
+  
+  memset(peers, 0, sizeof(peers));
+  assert(recv(tracker_socket, peers, sizeof(peers), 0) > 0);
+  printf("Received: %s\n", peers);
   
   fclose(fp);
   close(client_socket);
+  close(tracker_socket);
   return 0;
 }
