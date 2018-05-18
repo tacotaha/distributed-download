@@ -27,7 +27,8 @@ int main(int argc, char* argv[]){
   size_t num_bytes, bytes_left, bytes_per_partition;
   struct sockaddr_in server, addr, tracker;
   struct stat st;
-  char *ip = IP, *file_name, gather[BUF*2], buffer[32], ip_addrs[MAX_CLIENTS][INET_ADDRSTRLEN];
+  char *ip = "0.0.0.0", *file_name, gather[BUF*2], buffer[32],
+    ip_addrs[MAX_CLIENTS][INET_ADDRSTRLEN];
   pthread_t tids[MAX_CLIENTS];
   socklen_t sckln = sizeof(struct sockaddr_in);
 

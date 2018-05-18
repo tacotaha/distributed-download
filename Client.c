@@ -6,13 +6,28 @@
 
 #include "Connect/Connect.h"
 
+typedef struct peers{
+  char** peers; 
+  int num_peers;       
+  int peer_index;
+}Peers;
+
+typedef struct gather_args{
+  Peers* peers;
+  int sending;
+}GatherArgs;
+
+void* gather(void*);
+
 int main(int argc, char* argv[]){
   
-  int client_socket, tracker_socket,  port = PORT,
-    tracker_port = port + 1, client_number, bytes_remaining, bytes_rcvd;
+  int client_socket, tracker_socket,  port = PORT, i, 
+    tracker_port = port + 1, client_number, bytes_remaining,
+    bytes_rcvd, num_peers = 0, client_index, peer_indicies[MAX_CLIENTS];
   size_t bytes_to_receive;
   struct sockaddr_in server_addr, tracker_addr;
-  char buffer[BUF], peers[BUF*2], *ip = IP, *ptr;
+  char buffer[BUF], peer[BUF*2], *ip = IP, *ptr,
+    peers[MAX_CLIENTS][INET_ADDRSTRLEN], ipa[INET_ADDRSTRLEN];
   FILE *fp;
   
   for(int i = 1; i < argc; i += 2)
@@ -49,7 +64,7 @@ int main(int argc, char* argv[]){
   assert(ptr != NULL);
   bytes_to_receive = bytes_remaining = atoi(ptr);
 
-  fprintf(stdout, "[+] You are client %d. Receiving %lu bytes.\n", client_number, bytes_to_receive);
+  printf("[+] You are client %d. Receiving %lu bytes.\n", client_number, bytes_to_receive);
 
   memset(buffer, 0, sizeof(buffer));
   sprintf(buffer, "%d", client_number);
@@ -60,15 +75,32 @@ int main(int argc, char* argv[]){
 	bytes_remaining > 0){
     bytes_remaining -= bytes_rcvd;
     fwrite(buffer, sizeof(char), bytes_remaining < 0 ? abs(bytes_remaining) : bytes_rcvd, fp);
-    fprintf(stdout, "[+] %lf%c: ", 100.0 * (1 - (double)bytes_remaining/bytes_to_receive), '%');
-    fprintf(stdout, "Received %lu bytes from server\n", bytes_to_receive - bytes_remaining);
+    printf("[+] %lf%c: ", 100.0 * (1 - (double)bytes_remaining/bytes_to_receive), '%');
+    printf("Received %lu bytes from server\n", bytes_to_receive - bytes_remaining);
   }
 
-  
-  memset(peers, 0, sizeof(peers));
-  assert(recv(tracker_socket, peers, sizeof(peers), 0) > 0);
-  printf("Received: %s\n", peers);
-  
+  memset(peer, 0, sizeof(peer));
+  assert(recv(tracker_socket, peer, sizeof(peer), 0) > 0);
+  ptr = strtok(peer, ",");
+  assert(ptr != NULL);
+
+  do{
+    memset(buffer, 0, sizeof(buffer));
+    memset(ipa, 0, sizeof(ipa));
+    memset(peers[num_peers], 0, sizeof(peers[num_peers]));
+    i = 0;
+    strcpy(buffer, ptr);
+    while(*(buffer + i++) != ':');
+    buffer[i - 1] = 0;
+    client_index = atoi(buffer);
+    strcpy(peers[num_peers], buffer + i);
+    peer_indicies[num_peers++] = client_index;
+  }while((ptr = strtok(NULL, ",")) != NULL);
+
+  printf("Connected Peers...\n");
+  for(i = 0; i < num_peers; ++i)
+    printf("Client = %d, IP = %s\n", peer_indicies[i], peers[i]);
+    
   fclose(fp);
   close(client_socket);
   close(tracker_socket);
