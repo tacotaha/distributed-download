@@ -42,7 +42,8 @@ int main (int argc, char *argv[]) {
   struct sockaddr_in server_addr, tracker_addr, inbound_addrs[MAX_CLIENTS],
     outbound_addrs[MAX_CLIENTS];
   char buffer[BUF], peer[BUF * 2], filename[BUF], *ip = IP, *ptr;
-  unsigned char md5_checksum[MD5_DIGEST_LENGTH];
+  unsigned char incoming_checksum[MD5_DIGEST_LENGTH],
+    local_checksum[MD5_DIGEST_LENGTH];
   Peer peers[MAX_CLIENTS], me;
   GatherArgs thread_args[MAX_CLIENTS];
   Peers p;
@@ -104,7 +105,7 @@ int main (int argc, char *argv[]) {
   memset (peer, 0, sizeof (peer));
   assert (recv (tracker_socket, peer, BUF * 2, 0) > 0);
 
-  assert (recv (tracker_socket, md5_checksum, MD5_DIGEST_LENGTH, 0) > 0);
+  assert (recv (tracker_socket, incoming_checksum, MD5_DIGEST_LENGTH, 0) > 0);
 
   assert ((bytes_rcvd = recv (tracker_socket, filename, BUF, 0)) > 0);
   filename[bytes_rcvd] = 0;
@@ -202,6 +203,23 @@ int main (int argc, char *argv[]) {
 
   for (int i = 0; i < num_peers * 2 - 2; ++i)
     pthread_join (tids[i], NULL);
+
+  concat_files (num_peers, filename);
+  calculate_md5_hash (filename, local_checksum);
+  printf ("[+] Successfully downloaded file %s\n", filename);
+  printf ("[+] Performing file integrity checks...");
+
+
+  for (size_t i = 0; i < MD5_DIGEST_LENGTH; ++i) {
+    printf ("local: %02x \t incoming: %02x\n", local_checksum[i],
+	    incoming_checksum[i]);
+    if (local_checksum[i] != incoming_checksum[i]) {
+      fprintf (stderr,
+	       "File checksums don't match, possible data corruption detected!\n");
+      exit (1);
+    }
+  }
+  printf ("[+] Success! File transfer complete.\n");
 
   return 0;
 }

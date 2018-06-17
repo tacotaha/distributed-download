@@ -90,3 +90,20 @@ void calculate_md5_hash (const char *file_path, unsigned char *digest) {
   MD5_Final (digest, &md_context);
   fclose (file);
 }
+
+void concat_files (int num_clients, const char *filename) {
+  char c, buffer[BUF];
+  FILE *temp, *file = fopen (filename, "w");
+  assert (file != NULL);
+
+  for (int i = 0; i < num_clients; ++i) {
+    memset (buffer, 0, BUF);
+    sprintf (buffer, "%d", i);
+    assert ((temp = fopen (buffer, "rb")) != NULL);
+    while ((c = fgetc (temp)) && c != EOF)
+      fputc (c, file);
+    fclose (temp);
+    assert (remove (buffer) == 0);
+  }
+  fclose (file);
+}
