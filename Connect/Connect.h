@@ -17,7 +17,7 @@
  * @Return: File descriptor for the new socket
  * Create An Endpoint For Communication
  */
-int create_socket(void);
+int create_socket (void);
 
 
 /* 
@@ -25,7 +25,7 @@ int create_socket(void);
  * @Return: An Pv4 AF_INET socket struct as defined in <netinet/in.h>
  * Create a socket address structure of family AF_INET 
  */
-struct sockaddr_in create_socket_address(int port, char* ip_addr);
+struct sockaddr_in create_socket_address (int port, char *ip_addr);
 
 
 /* 
@@ -33,7 +33,7 @@ struct sockaddr_in create_socket_address(int port, char* ip_addr);
  * @Return: Status Codde according to bind()
  * Assign "Name" To Socket
  */
-int bind_connection(int socket, struct sockaddr* sa);
+int bind_connection (int socket, struct sockaddr *sa);
 
 
 /* 
@@ -42,7 +42,7 @@ int bind_connection(int socket, struct sockaddr* sa);
  * @Return: Status Code according to listen()
  * Listen for incoming connections
  */
-int listen_for_connection(int listener_socket, int backlog);
+int listen_for_connection (int listener_socket, int backlog);
 
 
 /* 
@@ -52,7 +52,8 @@ int listen_for_connection(int listener_socket, int backlog);
  * @Return: Status Code according to accept()
  * Assign "Name" To Socket
  */
-int accept_connection_from_client(int server_socket, struct sockaddr* client, socklen_t* addr_size);
+int accept_connection_from_client (int server_socket, struct sockaddr *client,
+				   socklen_t * addr_size);
 
 
 /* 
@@ -61,5 +62,5 @@ int accept_connection_from_client(int server_socket, struct sockaddr* client, so
  * @Return: Status Code according to connect()
  * Connect To Server
  */
-int connect_to_server(int client_socket, struct sockaddr* server);
+int connect_to_server (int client_socket, struct sockaddr *server);
 #endif
