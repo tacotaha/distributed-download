@@ -1,7 +1,10 @@
+#include <assert.h>
+#include <openssl/md5.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "Connect.h"
+
+#include "Common.h"
 
 int create_socket (void) {
   int option = 1;
@@ -70,4 +73,20 @@ int connect_to_server (int client_socket, struct sockaddr *server) {
     exit (1);
   }
   return status;
+}
+
+void calculate_md5_hash (const char *file_path, unsigned char *digest) {
+  int bytes = 0;
+  unsigned char data[1024];
+  MD5_CTX md_context;
+  FILE *file;
+
+  assert ((file = fopen (file_path, "rb")) != NULL);
+  MD5_Init (&md_context);
+
+  while ((bytes = fread (data, 1, 1024, file)) != 0)
+    MD5_Update (&md_context, data, bytes);
+
+  MD5_Final (digest, &md_context);
+  fclose (file);
 }

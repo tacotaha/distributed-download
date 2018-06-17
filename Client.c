@@ -1,4 +1,3 @@
-#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,8 +6,9 @@
 #include <sys/stat.h>
 #include <sys/sendfile.h>
 #include <fcntl.h>
+#include <openssl/md5.h>
 
-#include "Connect/Connect.h"
+#include "Common/Common.h"
 
 typedef struct peer {
   char ip[INET_ADDRSTRLEN];
@@ -41,7 +41,8 @@ int main (int argc, char *argv[]) {
   size_t bytes_to_receive;
   struct sockaddr_in server_addr, tracker_addr, inbound_addrs[MAX_CLIENTS],
     outbound_addrs[MAX_CLIENTS];
-  char buffer[BUF], peer[BUF * 2], *ip = IP, *ptr;
+  char buffer[BUF], peer[BUF * 2], filename[BUF], *ip = IP, *ptr;
+  unsigned char md5_checksum[MD5_DIGEST_LENGTH];
   Peer peers[MAX_CLIENTS], me;
   GatherArgs thread_args[MAX_CLIENTS];
   Peers p;
@@ -103,6 +104,11 @@ int main (int argc, char *argv[]) {
   memset (peer, 0, sizeof (peer));
   assert (recv (tracker_socket, peer, BUF * 2, 0) > 0);
 
+  assert (recv (tracker_socket, md5_checksum, MD5_DIGEST_LENGTH, 0) > 0);
+
+  assert ((bytes_rcvd = recv (tracker_socket, filename, BUF, 0)) > 0);
+  filename[bytes_rcvd] = 0;
+
   ptr = strtok (peer, ",");
   assert (ptr != NULL);
 
@@ -126,7 +132,7 @@ int main (int argc, char *argv[]) {
     strcpy (p.ip, buffer + i);
     p.index = client_index;
     peers[num_peers++] = p;
-  }while ((ptr = strtok (NULL, ",")) != NULL);
+  } while ((ptr = strtok (NULL, ",")) != NULL);
 
   num_peers += (num_peers <= client_number);
 

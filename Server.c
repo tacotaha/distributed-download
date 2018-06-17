@@ -7,8 +7,10 @@
 #include <sys/stat.h>
 #include <sys/sendfile.h>
 #include <fcntl.h>
+#include <libgen.h>
+#include <openssl/md5.h>
 
-#include "Connect/Connect.h"
+#include "Common/Common.h"
 
 typedef struct client {
   int client_socket;
@@ -19,6 +21,7 @@ typedef struct client {
 } Client;
 
 void *handle_client (void *);
+void calculate_md5_hash (const char *file_path, unsigned char *digest);
 
 int main (int argc, char *argv[]) {
   int server_socket = 0, client_socket = 0, client_tracker, client_count = 0,
@@ -28,9 +31,10 @@ int main (int argc, char *argv[]) {
   struct sockaddr_in server, addr, tracker;
   struct stat st;
   char *ip = "0.0.0.0", *file_name, gather[BUF * 2], buffer[32],
-    ip_addrs[MAX_CLIENTS][INET_ADDRSTRLEN];
+    ip_addrs[MAX_CLIENTS][INET_ADDRSTRLEN], *temp;
   pthread_t tids[MAX_CLIENTS];
   socklen_t sckln = sizeof (struct sockaddr_in);
+  unsigned char md5_hash[MD5_DIGEST_LENGTH];
 
   for (int i = 1; i < argc; i += 2)
     if (!strcmp (argv[i], "-i") && argc >= i + 1)
@@ -55,6 +59,8 @@ int main (int argc, char *argv[]) {
 	     MAX_CLIENTS);
     exit (-1);
   }
+
+  calculate_md5_hash (file_name, md5_hash);
 
   server_socket = create_socket ();
   tracker_socket = create_socket ();
@@ -120,10 +126,18 @@ int main (int argc, char *argv[]) {
       sprintf (buffer, "%d:%s,", j, ip_addrs[j]);
       strcat (gather, buffer);
     }
-    send (trackers[i], gather, sizeof (gather), 0);
+    assert (send (trackers[i], gather, sizeof (gather), 0) > 0);
+
+    memcpy (buffer, md5_hash, MD5_DIGEST_LENGTH);
+    assert (send (trackers[i], buffer, MD5_DIGEST_LENGTH, 0) > 0);
+
+    temp = basename (file_name);
+    assert (send (trackers[i], temp, strlen (temp), 0) > 0);
+
     close (clients[i]);
     close (trackers[i]);
   }
+
 
   printf ("[+] Transfer complete. Closing Sockets.\n");
   close (server_socket);
@@ -154,8 +168,6 @@ void *handle_client (void *args) {
     fprintf (stdout, "Sent %d bytes to client %d\n", sent_bytes,
 	     c->client_number);
   }
-
-  /*TODO Send MD5 checksum of the portion of the file */
 
   pthread_exit (NULL);
 }

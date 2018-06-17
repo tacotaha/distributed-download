@@ -1,5 +1,5 @@
-#ifndef __CONNECT_H__
-#define __CONNECT_H__
+#ifndef __COMMON_H__
+#define __COMMON_H__
 
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -63,4 +63,22 @@ int accept_connection_from_client (int server_socket, struct sockaddr *client,
  * Connect To Server
  */
 int connect_to_server (int client_socket, struct sockaddr *server);
+
+
+/**
+ * @brief Calculate the checksum of file via MD5
+ *
+ * @param file_path : The path to the file in question
+ * @param digest : an unsigned char buffer of length >= 16 bytes 
+ */
+void calculate_md5_hash (const char *file_path, unsigned char *digest);
+
+
+/**
+ * @brief Concatenates the partitions in the cwd into one file
+ *
+ * @param num_clients = num partitions
+ * @param filename : final name of aggregate file
+ */
+void concat_files (int num_clients, const char *filename);
 #endif
