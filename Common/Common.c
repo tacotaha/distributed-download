@@ -6,104 +6,106 @@
 
 #include "Common.h"
 
-int create_socket (void) {
+int create_socket(void) {
   int option = 1;
-  int sock = socket (AF_INET, SOCK_STREAM, 0);
+  int sock = socket(AF_INET, SOCK_STREAM, 0);
 
-  setsockopt (sock, SOL_SOCKET, SO_REUSEADDR, &option, sizeof (option));
+  setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option));
 
   if (sock >= 0)
-    printf ("[+] Socket Created Successfully.\n");
+    printf("[+] Socket Created Successfully.\n");
   else {
-    perror ("create_socket");
-    exit (1);
+    perror("create_socket");
+    exit(1);
   }
   return sock;
 }
 
-struct sockaddr_in create_socket_address (int port, char *ip_addr) {
+struct sockaddr_in create_socket_address(int port, char *ip_addr) {
   struct sockaddr_in sock;
   sock.sin_family = AF_INET;
-  sock.sin_port = htons (port);
-  sock.sin_addr.s_addr = inet_addr (ip_addr);
+  sock.sin_port = htons(port);
+  sock.sin_addr.s_addr = inet_addr(ip_addr);
   return sock;
 }
 
-int bind_connection (int socket, struct sockaddr *sa) {
-  int status = bind (socket, sa, sizeof (*sa));
+int bind_connection(int socket, struct sockaddr *sa) {
+  int status = bind(socket, sa, sizeof(*sa));
   if (status >= 0)
-    printf ("[+] Address successfully bound to socket.\n");
+    printf("[+] Address successfully bound to socket.\n");
   else {
-    perror ("bind_conection");
-    exit (1);
+    perror("bind_conection");
+    exit(1);
   }
   return status;
 }
 
-int listen_for_connection (int listener_socket, int backlog) {
-  int status = listen (listener_socket, backlog);
+int listen_for_connection(int listener_socket, int backlog) {
+  int status = listen(listener_socket, backlog);
   if (status == 0)
-    printf ("[+] Listening...\n");
+    printf("[+] Listening...\n");
   else {
-    perror ("listen_for_connection");
-    exit (1);
+    perror("listen_for_connection");
+    exit(1);
   }
   return status;
 }
 
-int accept_connection_from_client (int server_socket, struct sockaddr *client,
-				   socklen_t * addr_size) {
+int accept_connection_from_client(int server_socket, struct sockaddr *client,
+                                  socklen_t *addr_size) {
   int client_socket =
-    accept (server_socket, (struct sockaddr *) &client, addr_size);
+      accept(server_socket, (struct sockaddr *)&client, addr_size);
   if (client_socket >= 0)
-    printf ("[+] Accepted Connection.\n");
+    printf("[+] Accepted Connection.\n");
   else {
-    perror ("accept_connection_from_client");
-    exit (1);
+    perror("accept_connection_from_client");
+    exit(1);
   }
   return client_socket;
 }
 
-int connect_to_server (int client_socket, struct sockaddr *server) {
-  int status = connect (client_socket, server, sizeof (*server));
+int connect_to_server(int client_socket, struct sockaddr *server) {
+  int status = connect(client_socket, server, sizeof(*server));
   if (status == 0)
-    printf ("[+] Address successfully bound to socket.\n");
+    printf("[+] Address successfully bound to socket.\n");
   else {
-    perror ("connect_to_server");
-    exit (1);
+    perror("connect_to_server");
+    exit(1);
   }
   return status;
 }
 
-void calculate_md5_hash (const char *file_path, unsigned char *digest) {
+void calculate_md5_hash(const char *file_path, unsigned char *digest) {
   int bytes = 0;
   unsigned char data[1024];
   MD5_CTX md_context;
   FILE *file;
 
-  assert ((file = fopen (file_path, "rb")) != NULL);
-  MD5_Init (&md_context);
+  assert((file = fopen(file_path, "rb")) != NULL);
+  MD5_Init(&md_context);
 
-  while ((bytes = fread (data, 1, 1024, file)) != 0)
-    MD5_Update (&md_context, data, bytes);
+  while ((bytes = fread(data, 1, 1024, file)) != 0)
+    MD5_Update(&md_context, data, bytes);
 
-  MD5_Final (digest, &md_context);
-  fclose (file);
+  MD5_Final(digest, &md_context);
+  fclose(file);
 }
 
-void concat_files (int num_clients, const char *filename) {
-  char c, buffer[BUF];
-  FILE *temp, *file = fopen (filename, "w");
-  assert (file != NULL);
+void concat_files(int num_clients, const char *filename) {
+  int bytes_read = 0;
+  char buffer[BUF], fname[8];
+  FILE *temp, *file = fopen(filename, "w");
+  assert(file != NULL);
 
   for (int i = 0; i < num_clients; ++i) {
-    memset (buffer, 0, BUF);
-    sprintf (buffer, "%d", i);
-    assert ((temp = fopen (buffer, "rb")) != NULL);
-    while ((c = fgetc (temp)) && c != EOF)
-      fputc (c, file);
-    fclose (temp);
-    assert (remove (buffer) == 0);
+    memset(buffer, 0, BUF);
+    memset(fname, 0, sizeof(fname));
+    sprintf(fname, "%d", i);
+    assert((temp = fopen(fname, "r")) != NULL);
+    while ((bytes_read = fread(buffer, 1, sizeof(buffer), temp)) > 0)
+      fwrite(buffer, 1, bytes_read, file);
+    fclose(temp);
+    assert(remove(fname) == 0);
   }
-  fclose (file);
+  fclose(file);
 }
