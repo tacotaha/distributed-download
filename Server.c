@@ -24,7 +24,6 @@ void handle_client(Client *);
 int main(int argc, char *argv[]) {
   int server_socket = 0, client_socket = 0, client_tracker, client_count = 0,
       port = PORT, tracker_port = port + 1, tracker_socket = 0;
-  ;
   int num_clients = -99999, clients[MAX_CLIENTS], trackers[MAX_CLIENTS];
   size_t num_bytes, bytes_left, bytes_per_partition;
   struct sockaddr_in server, addr, tracker;

@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-Wall -Werror -std=c99 -pedantic -g
+CFLAGS=-Wall -Werror -std=c99 -pedantic
 LFLAGS=-lpthread -lssl -lcrypto
 EXEC=server client
 
