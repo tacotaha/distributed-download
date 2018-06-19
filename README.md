@@ -1,5 +1,5 @@
 # Distributed Download
-Bypass bandwidth restrictions by simultaneously transmitting partitions of a file across k clients, then combining the partitions into the original file upon completion.
+Bypass bandwidth restrictions by segmenting file transfers
 
 <img src="example.gif">
 
