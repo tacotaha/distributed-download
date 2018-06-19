@@ -109,99 +109,101 @@ int main(int argc, char *argv[]) {
   assert(recv(tracker_socket, peer, BUF * 2, 0) > 0);
 
   assert(recv(tracker_socket, incoming_checksum, MD5_DIGEST_LENGTH, 0) > 0);
-
   assert((bytes_rcvd = recv(tracker_socket, filename, BUF, 0)) > 0);
   filename[bytes_rcvd] = 0;
 
-  ptr = strtok(peer, ",");
-  assert(ptr != NULL);
+  if (strcmp(peer, "")) {
+    ptr = strtok(peer, ",");
+    assert(ptr != NULL);
 
-  close(client_socket);
-  close(tracker_socket);
+    close(client_socket);
+    close(tracker_socket);
 
-  strcpy(me.ip, "0.0.0.0");
-  me.index = client_number;
-  peers[client_number] = me;
+    strcpy(me.ip, "0.0.0.0");
+    me.index = client_number;
+    peers[client_number] = me;
 
-  do {
-    if (num_peers == client_number) ++num_peers;
-    memset(buffer, 0, sizeof(buffer));
-    Peer p;
-    i = 0;
-    strcpy(buffer, ptr);
-    while (*(buffer + i++) != ':')
-      ;
-    buffer[i - 1] = 0;
-    client_index = atoi(buffer);
-    strcpy(p.ip, buffer + i);
-    p.index = client_index;
-    peers[num_peers++] = p;
-  } while ((ptr = strtok(NULL, ",")) != NULL);
+    do {
+      if (num_peers == client_number) ++num_peers;
+      memset(buffer, 0, sizeof(buffer));
+      Peer p;
+      i = 0;
+      strcpy(buffer, ptr);
+      while (*(buffer + i++) != ':');
+      buffer[i - 1] = 0;
+      client_index = atoi(buffer);
+      strcpy(p.ip, buffer + i);
+      p.index = client_index;
+      peers[num_peers++] = p;
+    } while ((ptr = strtok(NULL, ",")) != NULL);
 
-  num_peers += (num_peers <= client_number);
+    num_peers += (num_peers <= client_number);
 
-  printf("[+] Spawning out-bound connections...\n");
-  for (int i = 0; i < num_peers; ++i)
-    if (i == client_number) {
-      for (int j = 0; j < num_peers; ++j) {
-        if (j == i) continue;
-        printf("[+] Starting out-bound connection to client %d\n", j);
-        outbound_sockets[j] = create_socket();
-        outbound_addrs[j] =
-            create_socket_address(PORT + j + 1 + client_number, "0.0.0.0");
-        printf("[+] Listening on port %d\n", PORT + j + 1 + client_number);
-        assert(bind_connection(outbound_sockets[j],
-                               (struct sockaddr *)outbound_addrs + j) == 0);
-        listen_for_connection(outbound_sockets[j], MAX_CLIENTS);
-        outfds[j] = accept(outbound_sockets[j],
-                           (struct sockaddr *)outbound_addrs + j, &sckln);
-        printf("[+] Connected to client %d\n", j);
+    printf("[+] Spawning out-bound connections...\n");
+    for (int i = 0; i < num_peers; ++i)
+      if (i == client_number) {
+        for (int j = 0; j < num_peers; ++j) {
+          if (j == i) continue;
+          printf("[+] Starting out-bound connection to client %d\n", j);
+          outbound_sockets[j] = create_socket();
+          outbound_addrs[j] =
+              create_socket_address(PORT + j + 1 + client_number, "0.0.0.0");
+          printf("[+] Listening on port %d\n", PORT + j + 1 + client_number);
+          assert(bind_connection(outbound_sockets[j],
+                                 (struct sockaddr *)outbound_addrs + j) == 0);
+          listen_for_connection(outbound_sockets[j], MAX_CLIENTS);
+          outfds[j] = accept(outbound_sockets[j],
+                             (struct sockaddr *)outbound_addrs + j, &sckln);
+          printf("[+] Connected to client %d\n", j);
+        }
+      } else {
+        printf("[+] Starting inbound connection to client %d\n", i);
+        inbound_sockets[i] = create_socket();
+        status = 0;
+        do {
+          close(inbound_sockets[i]);
+          inbound_sockets[i] = socket(AF_INET, SOCK_STREAM, 0);
+          setsockopt(inbound_sockets[i], SOL_SOCKET, SO_REUSEADDR, &yes,
+                     sizeof(yes));
+          inbound_addrs[i] =
+              create_socket_address(PORT + i + 1 + client_number, peers[i].ip);
+          printf("[+] Connecting to port %d at ip : %s\n",
+                 PORT + i + 1 + client_number, peers[i].ip);
+          status =
+              connect(inbound_sockets[i], (struct sockaddr *)inbound_addrs + i,
+                      sizeof(inbound_addrs[0]));
+        } while (status < 0);
+        printf("[+] Connected to client %d\n", i);
       }
-    } else {
-      printf("[+] Starting inbound connection to client %d\n", i);
-      inbound_sockets[i] = create_socket();
-      status = 0;
-      do {
-        close(inbound_sockets[i]);
-        inbound_sockets[i] = socket(AF_INET, SOCK_STREAM, 0);
-        setsockopt(inbound_sockets[i], SOL_SOCKET, SO_REUSEADDR, &yes,
-                   sizeof(yes));
-        inbound_addrs[i] =
-            create_socket_address(PORT + i + 1 + client_number, peers[i].ip);
-        printf("[+] Connecting to port %d at ip : %s\n",
-               PORT + i + 1 + client_number, peers[i].ip);
-        status =
-            connect(inbound_sockets[i], (struct sockaddr *)inbound_addrs + i,
-                    sizeof(inbound_addrs[0]));
-      } while (status < 0);
-      printf("[+] Connected to client %d\n", i);
+
+    p.peers = peers;
+    p.num_peers = num_peers;
+    p.my_index = client_number;
+
+    for (i = 0; i < num_peers; ++i) {
+      if (i == client_number) continue;
+      printf("Client = %d, IP = %s\n", peers[i].index, peers[i].ip);
+      GatherArgs *ga = thread_args + i;
+      assert(ga != NULL);
+      ga->peers = &p;
+      ga->client_index = peers[i].index;
+      ga->outfd = outfds[i];
+      ga->infd = inbound_sockets[i];
+      assert(pthread_create(tids + thread_index++, NULL, send_thread,
+                            thread_args + i) == 0);
+      printf("[+] Spawned outbound thread to client %d.\n", ga->client_index);
+      assert(pthread_create(tids + thread_index++, NULL, recv_thread,
+                            thread_args + i) == 0);
+      printf("[+] Spawned inbound thread from client %d.\n", ga->client_index);
     }
 
-  p.peers = peers;
-  p.num_peers = num_peers;
-  p.my_index = client_number;
+    for (int i = 0; i < num_peers * 2 - 2; ++i) pthread_join(tids[i], NULL);
 
-  for (i = 0; i < num_peers; ++i) {
-    if (i == client_number) continue;
-    printf("Client = %d, IP = %s\n", peers[i].index, peers[i].ip);
-    GatherArgs *ga = thread_args + i;
-    assert(ga != NULL);
-    ga->peers = &p;
-    ga->client_index = peers[i].index;
-    ga->outfd = outfds[i];
-    ga->infd = inbound_sockets[i];
-    assert(pthread_create(tids + thread_index++, NULL, send_thread,
-                          thread_args + i) == 0);
-    printf("[+] Spawned outbound thread to client %d.\n", ga->client_index);
-    assert(pthread_create(tids + thread_index++, NULL, recv_thread,
-                          thread_args + i) == 0);
-    printf("[+] Spawned inbound thread from client %d.\n", ga->client_index);
-  }
+    printf("[+] Merging files...\n");
+    concat_files(num_peers, filename);
+  } else
+    rename("0", filename);
 
-  for (int i = 0; i < num_peers * 2 - 2; ++i) pthread_join(tids[i], NULL);
-
-  printf("[+] Merging files...\n");
-  concat_files(num_peers, filename);
   calculate_md5_hash(filename, local_checksum);
   printf("[+] Successfully downloaded file %s\n", filename);
   printf("[+] Performing file integrity checks...\n");
