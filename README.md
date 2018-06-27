@@ -3,8 +3,11 @@ Bypass bandwidth restrictions by segmenting file transfers
 
 <img src="example.gif">
 
+## Motivation
+Suppose a group of people wish to share a large file between themselves. Rather than having one source send the same file multiple times, the following idea can be implemented to lighten the load and achieve faster cumulative download time.
+
 ## The Idea
-<p> Let k be the number of clients connected and let n be the size of the file being transferred. The server begins by partitioning the file into k partitions of n/k bytes each (last partition slightly larger if k is not a factor of n). It then sends the kth partition to the kth client. Once every client has received their partition, each client then simultaneously sends its partition to the rest of its peers, such that upon completion, every client has the file in its entirety. </p>
+<p> Let k be the number of clients connected and let n be the size of the file being transferred. The server begins by partitioning the file into k partitions of n/k bytes each (last partition slightly larger if k is not a factor of n). It then sends the ith partition to the ith client. Once every client has received their partition, each client then simultaneously sends its partition to the rest of its peers, such that upon completion, every client has the file in its entirety. </p>
 
 ## To Build 
  
