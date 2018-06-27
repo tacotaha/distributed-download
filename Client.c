@@ -202,7 +202,7 @@ int main(int argc, char *argv[]) {
     printf("[+] Merging files...\n");
     concat_files(num_peers, filename);
   } else
-    rename("0", filename);
+    assert(rename("0", filename) == 0);
 
   calculate_md5_hash(filename, local_checksum);
   printf("[+] Successfully downloaded file %s\n", filename);
