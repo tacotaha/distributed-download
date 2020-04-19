@@ -13,7 +13,7 @@ Suppose a group of people wish to share a large file between themselves. Rather 
  
  Simply clone this repository and use the Makefile to build
  
- ```git clone https://github.com/tazzaoui/distributed-download.git && cd distributed-download && make```
+ ```git clone https://github.com/tacotaha/distributed-download.git && cd distributed-download && make```
  
  You'll end up with two executables, namely ```server``` and ```client```
  
